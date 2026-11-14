@@ -3,35 +3,158 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>우리 반 스피드 2말 윷놀이 토너먼트</title>
+  <title>우리 반 전통 2말 윷놀이 토너먼트</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; user-select: none; }
+    @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&display=swap');
+
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background-color: #f4ebd9;
+      background-image: 
+        radial-gradient(#d6c5a3 1px, transparent 1px),
+        radial-gradient(#e5d7bc 1px, #f4ebd9 1px);
+      background-size: 24px 24px;
+      background-position: 0 0, 12px 12px;
+      user-select: none;
+    }
+
+    .font-trad {
+      font-family: 'Gowun Batang', serif;
+    }
+
+    /* 전통 창살 & 멍석 느낌 윷판 */
+    .yut-mat {
+      background: radial-gradient(circle at center, #fdf8ee 0%, #f1e3c6 75%, #e2cfa8 100%);
+      box-shadow: 
+        inset 0 0 30px rgba(139, 90, 43, 0.25),
+        0 12px 28px -6px rgba(92, 58, 24, 0.3);
+      border: 8px solid #6b3e1e;
+      outline: 3px solid #c59b5f;
+      outline-offset: -12px;
+    }
+
+    /* 윷 던지기 애니메이션 */
+    @keyframes yutToss {
+      0% { transform: translateY(40px) scale(0.7) rotate(0deg); opacity: 0; }
+      35% { transform: translateY(-90px) scale(1.25) rotate(220deg); opacity: 1; }
+      70% { transform: translateY(12px) scale(0.95) rotate(520deg); }
+      85% { transform: translateY(-10px) scale(1.03) rotate(700deg); }
+      100% { transform: translateY(0px) scale(1) rotate(720deg); opacity: 1; }
+    }
+
+    .animate-yut-0 { animation: yutToss 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .animate-yut-1 { animation: yutToss 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .animate-yut-2 { animation: yutToss 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .animate-yut-3 { animation: yutToss 0.76s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+    @keyframes popBadge {
+      0% { transform: scale(0.3); opacity: 0; }
+      70% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-badge { animation: popBadge 0.4s ease-out 0.45s both; }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    }
+    .piece-glow { animation: pulseGlow 1.4s infinite; }
   </style>
 </head>
-<body class="min-h-screen text-slate-800">
+<body class="min-h-screen text-stone-800">
   <div id="app"></div>
 
   <script>
     // =========================================================================
-    // 1. 윷놀이 판 좌표 및 규칙 엔진 (순수 JS)
+    // 0. Web Audio API 전통 효과음 생성기 (외부 파일 불필요)
+    // =========================================================================
+    const AudioFX = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playWoodClack(delay = 0, freq = 320) {
+        this.init();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        osc.frequency.exponentialRampToValueAtTime(110, t + 0.08);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.09);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.09);
+      },
+      playRoll() {
+        this.playWoodClack(0.05, 420);
+        this.playWoodClack(0.18, 360);
+        this.playWoodClack(0.35, 290);
+        this.playWoodClack(0.48, 340);
+      },
+      playFanfare() {
+        this.init();
+        if (!this.ctx) return;
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((f, i) => {
+          const t = this.ctx.currentTime + i * 0.09;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, t);
+          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.25);
+        });
+      },
+      playCatch() {
+        this.init();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(620, t + 0.25);
+        gain.gain.setValueAtTime(0.28, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.28);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.28);
+      }
+    };
+
+    // =========================================================================
+    // 1. 윷놀이 판 좌표 및 규칙 엔진 (29개 노드)
     // =========================================================================
     const NODES = {
-      0: { x: 88, y: 88, label: '출발/도착', big: true },
-      1: { x: 88, y: 71 }, 2: { x: 88, y: 54 }, 3: { x: 88, y: 37 }, 4: { x: 88, y: 20 },
-      5: { x: 88, y: 12, label: '모서리', big: true },
-      6: { x: 71, y: 12 }, 7: { x: 54, y: 12 }, 8: { x: 37, y: 12 }, 9: { x: 20, y: 12 },
-      10: { x: 12, y: 12, label: '모서리', big: true },
-      11: { x: 12, y: 29 }, 12: { x: 12, y: 46 }, 13: { x: 12, y: 63 }, 14: { x: 12, y: 80 },
-      15: { x: 12, y: 88, label: '모서리', big: true },
-      16: { x: 29, y: 88 }, 17: { x: 46, y: 88 }, 18: { x: 63, y: 88 }, 19: { x: 80, y: 88 },
-      20: { x: 73, y: 27 }, 21: { x: 61, y: 39 },
-      22: { x: 50, y: 50, label: '방', big: true },
-      23: { x: 39, y: 61 }, 24: { x: 27, y: 73 },
-      25: { x: 27, y: 27 }, 26: { x: 39, y: 39 },
-      27: { x: 61, y: 61 }, 28: { x: 73, y: 73 }
+      0: { x: 89, y: 89, label: '출발·도착', big: true, corner: true },
+      1: { x: 89, y: 71.5 }, 2: { x: 89, y: 54 }, 3: { x: 89, y: 36.5 }, 4: { x: 89, y: 19 },
+      5: { x: 89, y: 11, label: '지름길', big: true, corner: true },
+      6: { x: 71.5, y: 11 }, 7: { x: 54, y: 11 }, 8: { x: 36.5, y: 11 }, 9: { x: 19, y: 11 },
+      10: { x: 11, y: 11, label: '지름길', big: true, corner: true },
+      11: { x: 11, y: 28.5 }, 12: { x: 11, y: 46 }, 13: { x: 11, y: 63.5 }, 14: { x: 11, y: 81 },
+      15: { x: 11, y: 89, label: '모서리', big: true, corner: true },
+      16: { x: 28.5, y: 89 }, 17: { x: 46, y: 89 }, 18: { x: 63.5, y: 89 }, 19: { x: 81, y: 89 },
+      20: { x: 74, y: 26 }, 21: { x: 61.5, y: 38.5 },
+      22: { x: 50, y: 50, label: '방(중앙)', big: true, center: true },
+      23: { x: 38.5, y: 61.5 }, 24: { x: 26, y: 74 },
+      25: { x: 26, y: 26 }, 26: { x: 38.5, y: 38.5 },
+      27: { x: 61.5, y: 61.5 }, 28: { x: 74, y: 74 }
     };
 
     function getNextStep(pos, prevPos) {
@@ -71,38 +194,58 @@
       return curr;
     }
 
-    const YUT_RESULTS = [
-      { name: '도', steps: 1, prob: 0.25, extra: false },
-      { name: '개', steps: 2, prob: 0.37, extra: false },
-      { name: '걸', steps: 3, prob: 0.25, extra: false },
-      { name: '윷', steps: 4, prob: 0.06, extra: true },
-      { name: '모', steps: 5, prob: 0.04, extra: true },
-      { name: '빽도', steps: -1, prob: 0.03, extra: false }
-    ];
-
-    function rollYut() {
+    // 4개 윷가락 상태 생성 (true = 배(평평한 면), false = 등(둥근 면))
+    // 빽도 표시를 위해 0번 윷가락이 배(true)이고 나머지가 등(false)일 때 빽도 처리
+    function rollYutSticks() {
       const r = Math.random();
-      let acc = 0;
-      for (const item of YUT_RESULTS) {
-        acc += item.prob;
-        if (r <= acc) return item;
+      let sticks = [false, false, false, false];
+      let result = null;
+
+      if (r < 0.03) {
+        // 빽도 (0번 윷만 배)
+        sticks = [true, false, false, false];
+        result = { name: '빽도', steps: -1, extra: false, sticks, isBackDo: true, desc: '뒤로 1칸!' };
+      } else if (r < 0.28) {
+        // 도 (1~3번 중 하나만 배)
+        const idx = Math.floor(Math.random() * 3) + 1;
+        sticks[idx] = true;
+        result = { name: '도', steps: 1, extra: false, sticks, isBackDo: false, desc: '앞으로 1칸' };
+      } else if (r < 0.65) {
+        // 개 (2개 배)
+        const idxs = [0, 1, 2, 3].sort(() => Math.random() - 0.5).slice(0, 2);
+        idxs.forEach(i => sticks[i] = true);
+        result = { name: '개', steps: 2, extra: false, sticks, isBackDo: false, desc: '앞으로 2칸' };
+      } else if (r < 0.90) {
+        // 걸 (3개 배)
+        const flat = Math.floor(Math.random() * 4);
+        sticks = [0, 1, 2, 3].map(i => i !== flat);
+        result = { name: '걸', steps: 3, extra: false, sticks, isBackDo: false, desc: '앞으로 3칸' };
+      } else if (r < 0.96) {
+        // 윷 (4개 모두 배)
+        sticks = [true, true, true, true];
+        result = { name: '윷', steps: 4, extra: true, sticks, isBackDo: false, desc: '4칸 + 한 번 더!' };
+      } else {
+        // 모 (4개 모두 등)
+        sticks = [false, false, false, false];
+        result = { name: '모', steps: 5, extra: true, sticks, isBackDo: false, desc: '5칸 + 한 번 더!' };
       }
-      return YUT_RESULTS[1];
+      return result;
     }
 
     // =========================================================================
     // 2. 전역 상태 관리
     // =========================================================================
     const state = {
-      mode: null, // null | 'host' | 'student'
+      mode: null,
       roomCode: '',
       currentUser: null,
-      connStatus: 'disconnected', // disconnected | connecting | connected | error
+      connStatus: 'disconnected',
       errorMsg: '',
       players: {},
       matches: {},
       activeMatchId: null,
       selectedMoveIdx: 0,
+      rollAnimKey: 0,
       peer: null,
       connections: [],
       hostConn: null
@@ -144,6 +287,7 @@
     }
 
     function startHost() {
+      AudioFX.init();
       if (typeof Peer === 'undefined') {
         setState({ errorMsg: '인터넷 연결 또는 PeerJS 라이브러리 로딩을 확인해주세요.' });
         return;
@@ -154,9 +298,7 @@
       const peer = new Peer(`yut-class-${code}`);
       state.peer = peer;
 
-      peer.on('open', () => {
-        setState({ connStatus: 'connected' });
-      });
+      peer.on('open', () => setState({ connStatus: 'connected' }));
 
       peer.on('connection', (conn) => {
         state.connections.push(conn);
@@ -184,6 +326,7 @@
 
     function joinStudent(e) {
       e.preventDefault();
+      AudioFX.init();
       const codeInput = document.getElementById('input-code').value.trim();
       const nameInput = document.getElementById('input-name').value.trim();
       if (!codeInput || !nameInput) return;
@@ -303,6 +446,8 @@
           p2: [{ id: 0, pos: -1, prev: -1 }, { id: 1, pos: -1, prev: -1 }]
         },
         pendingMoves: [],
+        lastRoll: null,
+        rollCount: 0,
         canRoll: true,
         logs: ['경기가 시작되었습니다! 말 2개를 먼저 완주시키세요.']
       };
@@ -315,8 +460,11 @@
       const myRole = match.p1?.id === state.currentUser?.id ? 'p1' : match.p2?.id === state.currentUser?.id ? 'p2' : null;
       if (!myRole || gs.turn !== myRole || !gs.canRoll || match.winner) return;
 
-      const result = rollYut();
-      const newPending = [...(gs.pendingMoves || []), { name: result.name, steps: result.steps }];
+      AudioFX.playRoll();
+      const result = rollYutSticks();
+      if (result.extra) setTimeout(() => AudioFX.playFanfare(), 450);
+
+      const newPending = [...(gs.pendingMoves || []), { name: result.name, steps: result.steps, desc: result.desc }];
       let nextCanRoll = result.extra;
       let nextTurn = gs.turn;
       const playerName = myRole === 'p1' ? match.p1.name : match.p2.name;
@@ -336,6 +484,8 @@
           ...gs,
           turn: nextTurn,
           pendingMoves: newPending,
+          lastRoll: result,
+          rollCount: (gs.rollCount || 0) + 1,
           canRoll: nextCanRoll,
           logs: [logMsg, ...(gs.logs || []).slice(0, 7)]
         }
@@ -361,6 +511,7 @@
       if (targetPiece.pos === 99) return;
       if (activeMove.steps === -1 && targetPiece.pos === -1) return;
 
+      AudioFX.playWoodClack(0, 500);
       const dest = calculateDestination(targetPiece.pos, activeMove.steps, targetPiece.prev);
       const playerName = myRole === 'p1' ? match.p1.name : match.p2.name;
 
@@ -386,6 +537,9 @@
         });
       }
 
+      if (caught) AudioFX.playCatch();
+      if (dest === 99) AudioFX.playFanfare();
+
       const remainingMoves = gs.pendingMoves.filter((_, i) => i !== moveIdx);
       let nextCanRoll = gs.canRoll || caught;
       let nextTurn = gs.turn;
@@ -396,6 +550,7 @@
 
       const isWin = myPieces.every(p => p.pos === 99);
       if (isWin) {
+        AudioFX.playFanfare();
         updateMatch({
           ...match,
           winner: match[myRole],
@@ -429,7 +584,66 @@
     }
 
     // =========================================================================
-    // 5. 화면 렌더링 함수
+    // 5. 전통 윷가락 그래픽 렌더러
+    // =========================================================================
+    function renderYutSticksVisual(lastRoll, rollCount) {
+      if (!lastRoll) {
+        return `
+          <div class="flex flex-col items-center justify-center py-4 text-amber-900/60">
+            <div class="flex gap-3 mb-2 opacity-60">
+              ${[0,1,2,3].map(() => `
+                <div class="w-6 h-20 rounded-full bg-gradient-to-r from-amber-700 via-amber-600 to-amber-800 border-2 border-amber-950 shadow-inner"></div>
+              `).join('')}
+            </div>
+            <span class="text-xs font-bold">아래 버튼을 눌러 윷을 던져주세요!</span>
+          </div>
+        `;
+      }
+
+      const angles = [-8, 4, -3, 9];
+      const sticksHtml = lastRoll.sticks.map((isFlat, i) => {
+        // isFlat === true: 배(평평한 하얀 나무 면 + X 표시)
+        // isFlat === false: 등(갈색 나무 껍질 면 + 전통 매듭 무늬)
+        return `
+          <div key="${rollCount}-${i}" style="--rot: ${angles[i]}deg"
+            class="animate-yut-${i} relative w-8 h-24 rounded-full shadow-lg flex flex-col items-center justify-between py-2.5 border-2
+            ${isFlat
+              ? 'bg-gradient-to-b from-amber-50 via-orange-50 to-amber-100 border-amber-700 text-amber-900'
+              : 'bg-gradient-to-r from-amber-900 via-amber-700 to-amber-900 border-stone-900 text-amber-200'}">
+            ${isFlat ? `
+              <span class="text-[11px] font-black leading-none">✕</span>
+              <span class="text-[11px] font-black leading-none">${i === 0 && lastRoll.isBackDo ? '🔙' : '✕'}</span>
+              <span class="text-[11px] font-black leading-none">✕</span>
+            ` : `
+              <div class="w-4 h-0.5 bg-amber-300/40 rounded"></div>
+              <div class="w-3 h-3 rounded-full border border-amber-300/40"></div>
+              <div class="w-4 h-0.5 bg-amber-300/40 rounded"></div>
+            `}
+          </div>
+        `;
+      }).join('');
+
+      const badgeColor = lastRoll.extra
+        ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white ring-4 ring-amber-300'
+        : lastRoll.isBackDo
+          ? 'bg-stone-800 text-amber-300 ring-2 ring-stone-500'
+          : 'bg-amber-800 text-amber-50';
+
+      return `
+        <div class="relative flex flex-col items-center justify-center py-2">
+          <div class="flex items-center justify-center gap-3.5 my-1">
+            ${sticksHtml}
+          </div>
+          <div class="animate-badge mt-2 px-5 py-1.5 rounded-full shadow-md flex items-center gap-2 ${badgeColor}">
+            <span class="font-trad text-2xl font-black tracking-wider">${lastRoll.name}</span>
+            <span class="text-xs font-bold opacity-90">(${lastRoll.desc})</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 6. 메인 화면 렌더러
     // =========================================================================
     function render() {
       const root = document.getElementById('app');
@@ -437,37 +651,37 @@
       // [화면 A] 초기 로그인 / 방 개설 화면
       if (!state.mode) {
         root.innerHTML = `
-          <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-amber-50 to-orange-100">
-            <div class="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full border border-amber-200 space-y-6">
+          <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="bg-[#fffdf9] p-8 rounded-3xl shadow-2xl max-w-md w-full border-4 border-amber-800 outline outline-2 outline-amber-400 -outline-offset-8 space-y-6">
               <div class="text-center">
-                <div class="text-5xl mb-2">🎲</div>
-                <h1 class="text-2xl font-black text-slate-800">우리 반 2말 윷놀이 토너먼트</h1>
-                <p class="text-sm text-slate-500 mt-1">선생님이 연 방 번호(4자리)와 내 이름을 입력하세요</p>
+                <div class="inline-block px-3 py-1 bg-red-800 text-amber-100 text-xs font-bold rounded-full mb-2">전통 민속놀이 한마당</div>
+                <h1 class="font-trad text-3xl font-black text-stone-900">우리 반 2말 윷놀이</h1>
+                <p class="text-sm text-stone-600 mt-1">칠판의 방 번호(4자리)와 내 이름을 입력하세요</p>
               </div>
 
-              ${state.errorMsg ? `<div class="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-bold">⚠️ ${state.errorMsg}</div>` : ''}
+              ${state.errorMsg ? `<div class="p-3 bg-rose-50 border border-rose-300 text-rose-800 text-xs rounded-xl font-bold">⚠️ ${state.errorMsg}</div>` : ''}
 
               <form id="join-form" class="space-y-3">
                 <div>
-                  <label class="block text-xs font-bold text-slate-600 mb-1">방 번호 (4자리 숫자)</label>
+                  <label class="block text-xs font-bold text-stone-700 mb-1">방 번호 (4자리 숫자)</label>
                   <input id="input-code" type="text" maxlength="4" placeholder="예: 4829" value="${state.roomCode}"
-                    class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none text-center font-black text-xl tracking-widest" required />
+                    class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50/40 focus:border-red-700 focus:outline-none text-center font-black text-2xl tracking-widest text-stone-900" required />
                 </div>
                 <div>
-                  <label class="block text-xs font-bold text-slate-600 mb-1">내 이름 (번호 + 이름)</label>
+                  <label class="block text-xs font-bold text-stone-700 mb-1">내 이름 (번호 + 이름)</label>
                   <input id="input-name" type="text" placeholder="예: 5번 김민준"
-                    class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none text-center font-bold text-lg" required />
+                    class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50/40 focus:border-red-700 focus:outline-none text-center font-bold text-lg text-stone-900" required />
                 </div>
                 <button type="submit" ${state.connStatus === 'connecting' ? 'disabled' : ''}
-                  class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-lg shadow-md transition disabled:bg-slate-400 cursor-pointer">
-                  ${state.connStatus === 'connecting' ? '방에 연결하는 중...' : '학생으로 입장하기'}
+                  class="w-full py-3.5 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-amber-50 font-bold rounded-xl text-lg shadow-lg transition disabled:opacity-50 cursor-pointer">
+                  ${state.connStatus === 'connecting' ? '방에 입장하는 중...' : '🏮 학생으로 입장하기'}
                 </button>
               </form>
 
-              <div class="border-t pt-4 text-center">
+              <div class="border-t border-amber-200 pt-4 text-center">
                 <button id="btn-host" type="button"
-                  class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm shadow-sm transition cursor-pointer">
-                  👩‍🏫 선생님용: 새 토너먼트 방 개설하기
+                  class="w-full py-3 bg-amber-700 hover:bg-amber-800 text-amber-50 font-bold rounded-xl text-sm shadow-sm transition cursor-pointer">
+                  👑 선생님용: 새 토너먼트 방 개설하기
                 </button>
               </div>
             </div>
@@ -478,7 +692,7 @@
         return;
       }
 
-      // [화면 B] 윷놀이 게임 보드 화면
+      // [화면 B] 윷놀이 게임 보드 화면 (확대된 전통 윷판 + 전략 선택 UI)
       if (state.activeMatchId && state.matches[state.activeMatchId]) {
         const match = state.matches[state.activeMatchId];
         const gs = getMatchGameState(match);
@@ -489,7 +703,18 @@
         const moveIdx = state.selectedMoveIdx < gs.pendingMoves.length ? state.selectedMoveIdx : 0;
         const activeMove = gs.pendingMoves[moveIdx] || null;
 
+        // 이동 가능한 말 분석 (새 말 vs 판 위 기존 말)
         const previewMap = {};
+        let waitingPieceIdx = -1;
+        const activeBoardPieces = [];
+
+        if (myRole) {
+          gs.pieces[myRole].forEach((p, idx) => {
+            if (p.pos === -1 && waitingPieceIdx === -1) waitingPieceIdx = idx;
+            if (p.pos >= 0 && p.pos < 99) activeBoardPieces.push({ idx, pos: p.pos });
+          });
+        }
+
         if (isMyTurn && activeMove) {
           gs.pieces[myRole].forEach((p, idx) => {
             if (p.pos !== 99 && !(activeMove.steps === -1 && p.pos === -1)) {
@@ -498,74 +723,134 @@
           });
         }
 
+        // 전통 문양 노드 SVG 생성
         const nodesSvg = Object.entries(NODES).map(([idStr, node]) => {
           const id = Number(idStr);
           const isPrev = previewMap[id] !== undefined;
+          const r = node.big ? 5.2 : 3.3;
           return `
             <g class="${isPrev ? 'cursor-pointer node-target' : ''}" data-piece="${isPrev ? previewMap[id] : ''}">
-              <circle cx="${node.x}" cy="${node.y}" r="${node.big ? 4.8 : 3.2}"
-                fill="${isPrev ? '#22c55e' : node.big ? '#fef3c7' : '#ffffff'}"
-                stroke="${isPrev ? '#15803d' : '#b45309'}" stroke-width="${isPrev ? '1.2' : '0.8'}" />
-              ${node.label ? `<text x="${node.x}" y="${node.y + (id === 0 ? 7.5 : -6)}" font-size="2.8" text-anchor="middle" fill="#92400e" font-weight="bold">${node.label}</text>` : ''}
+              ${node.big ? `<circle cx="${node.x}" cy="${node.y}" r="${r + 1.4}" fill="none" stroke="${isPrev ? '#16a34a' : '#9a3412'}" stroke-width="0.5" stroke-dasharray="1.2,0.8" />` : ''}
+              <circle cx="${node.x}" cy="${node.y}" r="${r}"
+                fill="${isPrev ? '#22c55e' : node.center ? '#fef08a' : node.corner ? '#fee2e2' : '#fffbeb'}"
+                stroke="${isPrev ? '#14532d' : '#78350f'}" stroke-width="${isPrev ? '1.3' : '0.9'}" />
+              ${node.big ? `<circle cx="${node.x}" cy="${node.y}" r="1.4" fill="${isPrev ? '#ffffff' : '#9a3412'}" />` : ''}
+              ${node.label ? `
+                <text x="${node.x}" y="${node.y + (id === 0 ? 8.2 : id === 22 ? 8.0 : -6.8)}" font-size="2.7" text-anchor="middle" fill="#78350f" font-weight="900">
+                  ${node.label}
+                </text>
+              ` : ''}
             </g>
           `;
         }).join('');
 
+        // 판 위 말 렌더링 (업힌 말 표시 포함)
         const piecesHtml = ['p1', 'p2'].map(role =>
           gs.pieces[role].map((piece, idx) => {
             if (piece.pos < 0 || piece.pos === 99) return '';
             const node = NODES[piece.pos];
-            const offset = role === 'p1' ? -1.8 : 1.8;
+            // 같은 칸에 내 말이 업혀있는지 확인
+            const stacked = gs.pieces[role].filter(p => p.pos === piece.pos).length > 1;
+            const offset = role === 'p1' ? -2.0 : 2.0;
             const clickable = isMyTurn && role === myRole && activeMove;
             return `
               <button data-piece="${idx}" ${!clickable ? 'disabled' : ''}
                 style="left: ${node.x + offset}%; top: ${node.y}%"
-                class="board-piece absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full font-bold text-xs text-white shadow-md flex items-center justify-center border-2 border-white
-                ${role === 'p1' ? 'bg-blue-600' : 'bg-rose-600'}
-                ${clickable ? 'ring-4 ring-emerald-400 animate-bounce cursor-pointer z-10' : ''}">
-                ${idx + 1}
+                class="board-piece absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full font-black text-xs md:text-sm text-white shadow-xl flex flex-col items-center justify-center border-2 border-amber-200 transition-transform
+                ${role === 'p1' ? 'bg-gradient-to-b from-blue-600 to-blue-800' : 'bg-gradient-to-b from-red-600 to-red-800'}
+                ${clickable ? 'piece-glow ring-4 ring-emerald-400 scale-110 cursor-pointer z-20' : 'z-10'}">
+                <span>${stacked ? '업힘' : (idx + 1) + '번'}</span>
               </button>
             `;
           }).join('')
         ).join('');
 
+        // 말 선택 전략 가이드 박스 (이동권이 있을 때만 활성화)
+        let strategyBoxHtml = '';
+        if (isMyTurn && activeMove) {
+          const canUseNew = waitingPieceIdx !== -1 && activeMove.steps > 0;
+          const canUseExisting = activeBoardPieces.length > 0;
+          strategyBoxHtml = `
+            <div class="p-3.5 bg-emerald-50 border-2 border-emerald-500 rounded-2xl space-y-2 shadow-sm">
+              <div class="text-xs font-black text-emerald-900 flex items-center justify-between">
+                <span>🎯 [${activeMove.name}] 이동 선택: 어떤 말로 갈까요?</span>
+              </div>
+              <div class="grid grid-cols-1 gap-2">
+                ${canUseNew ? `
+                  <button data-piece="${waitingPieceIdx}" class="strategy-btn w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-between shadow cursor-pointer">
+                    <span>🆕 대기 중인 새 말 (${waitingPieceIdx + 1}번 말) 출발시키기</span>
+                    <span class="bg-emerald-800 px-2 py-0.5 rounded text-[11px]">출발 →</span>
+                  </button>
+                ` : ''}
+                ${canUseExisting ? activeBoardPieces.map(bp => `
+                  <button data-piece="${bp.idx}" class="strategy-btn w-full py-2.5 px-3 bg-amber-700 hover:bg-amber-800 text-amber-50 rounded-xl text-xs font-bold flex items-center justify-between shadow cursor-pointer">
+                    <span>🏃 판 위의 ${bp.idx + 1}번 말로 계속 전진하기</span>
+                    <span class="bg-amber-900 px-2 py-0.5 rounded text-[11px]">전진 →</span>
+                  </button>
+                `).join('') : ''}
+              </div>
+            </div>
+          `;
+        }
+
         root.innerHTML = `
-          <div class="min-h-screen p-4 md:p-8">
-            <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-4 md:p-6 border border-slate-200">
-              <div class="flex items-center justify-between border-b pb-4 mb-4">
-                <button id="btn-exit-match" class="px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg font-medium cursor-pointer">← 대진표로</button>
-                <div class="flex items-center gap-3 md:gap-6">
-                  <div class="px-4 py-2 rounded-xl border-2 ${gs.turn === 'p1' ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-slate-50'}">
-                    <span class="text-xs font-bold text-blue-600 block">선공 (파랑)</span>
-                    <span class="font-bold text-base md:text-lg">${match.p1?.name || '대기중'}</span>
+          <div class="min-h-screen p-2 md:p-6">
+            <div class="max-w-7xl mx-auto bg-[#fffdf9] rounded-3xl shadow-2xl p-4 md:p-6 border-4 border-amber-900/80">
+              <!-- 상단 전광판 -->
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-amber-200 pb-3 mb-5">
+                <button id="btn-exit-match" class="px-3.5 py-2 text-sm bg-amber-100 hover:bg-amber-200 text-amber-950 rounded-xl font-bold cursor-pointer">← 대진표</button>
+                
+                <div class="flex items-center gap-3 md:gap-8">
+                  <div class="px-5 py-2 rounded-2xl border-2 transition ${gs.turn === 'p1' ? 'border-blue-600 bg-blue-50 shadow-md scale-105' : 'border-transparent bg-stone-100 opacity-70'}">
+                    <span class="text-[11px] font-black text-blue-700 block">청팀 (선공)</span>
+                    <span class="font-black text-base md:text-xl text-stone-900">${match.p1?.name || '대기중'}</span>
                   </div>
-                  <span class="font-black text-slate-400 text-xl">VS</span>
-                  <div class="px-4 py-2 rounded-xl border-2 ${gs.turn === 'p2' ? 'border-rose-500 bg-rose-50' : 'border-transparent bg-slate-50'}">
-                    <span class="text-xs font-bold text-rose-600 block">후공 (빨강)</span>
-                    <span class="font-bold text-base md:text-lg">${match.p2?.name || '대기중'}</span>
+                  <span class="font-trad font-black text-amber-800 text-2xl">對</span>
+                  <div class="px-5 py-2 rounded-2xl border-2 transition ${gs.turn === 'p2' ? 'border-red-600 bg-red-50 shadow-md scale-105' : 'border-transparent bg-stone-100 opacity-70'}">
+                    <span class="text-[11px] font-black text-red-700 block">홍팀 (후공)</span>
+                    <span class="font-black text-base md:text-xl text-stone-900">${match.p2?.name || '대기중'}</span>
                   </div>
                 </div>
-                <div class="w-16 text-right">${match.winner ? '<span class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">종료</span>' : ''}</div>
+
+                <div class="w-20 text-right">
+                  ${match.winner ? '<span class="px-3 py-1 bg-amber-200 text-amber-950 rounded-full text-xs font-black">승부결정</span>' : '<span class="text-xs font-bold text-amber-700">2말 선승제</span>'}
+                </div>
               </div>
 
-              ${match.winner ? `<div class="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl text-center font-bold text-amber-900">🎉 ${match.winner.name} 학생 승리! 다음 라운드로 자동 진출했습니다.</div>` : ''}
+              ${match.winner ? `
+                <div class="mb-5 p-4 bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-100 border-2 border-amber-500 rounded-2xl text-center shadow">
+                  <p class="font-trad text-xl md:text-2xl font-black text-amber-950">🎊 경축! ${match.winner.name} 학생 승리! 다음 라운드로 진출합니다!</p>
+                </div>
+              ` : ''}
 
-              <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-                <div class="md:col-span-7 relative aspect-square bg-amber-50/70 rounded-2xl border-2 border-amber-200 p-2">
-                  <svg viewBox="0 0 100 100" class="w-full h-full">
-                    <rect x="12" y="12" width="76" height="76" fill="none" stroke="#d97706" stroke-width="0.8" />
-                    <line x1="12" y1="12" x2="88" y2="88" stroke="#d97706" stroke-width="0.8" stroke-dasharray="1.5,1" />
-                    <line x1="88" y1="12" x2="12" y2="88" stroke="#d97706" stroke-width="0.8" stroke-dasharray="1.5,1" />
-                    ${nodesSvg}
-                  </svg>
-                  ${piecesHtml}
+              <!-- 메인 게임 영역: 윷판을 7/12(약 60%)로 큼직하게 배치 -->
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- 좌측: 초대형 전통 윷판 -->
+                <div class="lg:col-span-7 flex justify-center">
+                  <div class="yut-mat relative w-full max-w-[640px] aspect-square rounded-3xl p-3 md:p-5">
+                    <svg viewBox="0 0 100 100" class="w-full h-full">
+                      <!-- 전통 창살 장식 테두리 및 대각선 -->
+                      <rect x="11" y="11" width="78" height="78" fill="none" stroke="#78350f" stroke-width="1.2" />
+                      <rect x="9.2" y="9.2" width="81.6" height="81.6" fill="none" stroke="#b45309" stroke-width="0.4" />
+                      <line x1="11" y1="11" x2="89" y2="89" stroke="#78350f" stroke-width="1.1" />
+                      <line x1="89" y1="11" x2="11" y2="89" stroke="#78350f" stroke-width="1.1" />
+                      <!-- 중앙 태극/연꽃 장식 원 -->
+                      <circle cx="50" cy="50" r="11" fill="none" stroke="#d97706" stroke-width="0.4" stroke-dasharray="1.5,1.5" />
+                      ${nodesSvg}
+                    </svg>
+                    ${piecesHtml}
+                  </div>
                 </div>
 
-                <div class="md:col-span-5 flex flex-col gap-4">
+                <!-- 우측: 윷 던지기 멍석 & 컨트롤 패널 -->
+                <div class="lg:col-span-5 flex flex-col gap-4">
+                  <!-- 양 팀 말 대기소 현황 -->
                   <div class="grid grid-cols-2 gap-3">
                     ${['p1', 'p2'].map(role => `
-                      <div class="p-3 rounded-xl border ${role === 'p1' ? 'bg-blue-50/60 border-blue-200' : 'bg-rose-50/60 border-rose-200'}">
-                        <div class="text-xs font-bold mb-2 text-slate-600">${role === 'p1' ? match.p1?.name : match.p2?.name}의 말</div>
+                      <div class="p-3 rounded-2xl border-2 ${role === 'p1' ? 'bg-blue-50/70 border-blue-300' : 'bg-red-50/70 border-red-300'}">
+                        <div class="text-xs font-black mb-2 ${role === 'p1' ? 'text-blue-900' : 'text-red-900'}">
+                          ${role === 'p1' ? match.p1?.name : match.p2?.name} 말 현황
+                        </div>
                         <div class="flex gap-2">
                           ${gs.pieces[role].map((p, idx) => {
                             const isWaiting = p.pos === -1;
@@ -573,12 +858,12 @@
                             const canStart = isMyTurn && role === myRole && isWaiting && activeMove && activeMove.steps > 0;
                             return `
                               <button data-piece="${idx}" ${!canStart ? 'disabled' : ''}
-                                class="start-piece flex-1 py-2 px-2 rounded-lg text-xs font-bold border transition
-                                ${isFin ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
-                                  isWaiting ? (role === 'p1' ? 'bg-blue-600 text-white' : 'bg-rose-600 text-white') :
-                                  'bg-slate-100 text-slate-400 border-slate-200'}
+                                class="start-piece flex-1 py-2.5 px-2 rounded-xl text-xs font-black border-2 transition
+                                ${isFin ? 'bg-emerald-100 text-emerald-800 border-emerald-400' :
+                                  isWaiting ? (role === 'p1' ? 'bg-blue-700 text-white border-blue-900' : 'bg-red-700 text-white border-red-900') :
+                                  'bg-stone-200 text-stone-500 border-stone-300'}
                                 ${canStart ? 'ring-4 ring-emerald-400 animate-pulse cursor-pointer' : ''}">
-                                ${isFin ? `말${idx+1} 완주!` : isWaiting ? `말${idx+1} 출발` : `말${idx+1} 출전중`}
+                                ${isFin ? `🏅 말${idx+1} 완주` : isWaiting ? `말${idx+1} 대기` : `말${idx+1} 출전`}
                               </button>
                             `;
                           }).join('')}
@@ -587,27 +872,40 @@
                     `).join('')}
                   </div>
 
-                  <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <div class="flex items-center justify-between mb-3">
-                      <span class="text-sm font-bold text-slate-700">
-                        ${match.winner ? '경기 종료' : isMyTurn ? '🔥 내 차례입니다!' : `${gs.turn === 'p1' ? match.p1?.name : match.p2?.name}님의 차례`}
+                  <!-- 윷 던지기 멍석 패널 -->
+                  <div class="p-4 bg-amber-100/70 rounded-2xl border-2 border-amber-400 shadow-inner">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-black text-amber-950">
+                        ${match.winner ? '경기 종료' : isMyTurn ? '🔥 지금 내 차례입니다!' : `⏳ ${gs.turn === 'p1' ? match.p1?.name : match.p2?.name}님 순서`}
                       </span>
-                      ${previewMap[99] !== undefined ? `<button id="btn-goal" data-piece="${previewMap[99]}" class="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg animate-bounce cursor-pointer">🎉 골인시키기!</button>` : ''}
+                      ${previewMap[99] !== undefined ? `
+                        <button id="btn-goal" data-piece="${previewMap[99]}" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow animate-bounce cursor-pointer">
+                          🎉 골인시키기!
+                        </button>
+                      ` : ''}
+                    </div>
+
+                    <!-- 윷가락 애니메이션 무대 -->
+                    <div class="bg-[#fdf6e7] rounded-xl border border-amber-300 p-3 mb-3 min-h-[145px] flex items-center justify-center overflow-hidden">
+                      ${renderYutSticksVisual(gs.lastRoll, gs.rollCount)}
                     </div>
 
                     <button id="btn-roll" ${(!isMyTurn || !gs.canRoll || match.winner) ? 'disabled' : ''}
-                      class="w-full py-3.5 rounded-xl font-black text-lg shadow-sm transition
-                      ${isMyTurn && gs.canRoll && !match.winner ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}">
-                      ${!myRole ? '👀 관전 모드' : gs.canRoll ? '🎲 윷 던지기!' : '말을 선택해 이동하세요'}
+                      class="w-full py-4 rounded-2xl font-black text-xl shadow-lg transition transform active:scale-95
+                      ${isMyTurn && gs.canRoll && !match.winner
+                        ? 'bg-gradient-to-r from-red-700 via-red-600 to-amber-600 hover:from-red-800 hover:to-amber-700 text-white cursor-pointer ring-2 ring-amber-300'
+                        : 'bg-stone-300 text-stone-500 cursor-not-allowed'}">
+                      ${!myRole ? '👀 관전 모드' : gs.canRoll ? '🎲 힘차게 윷 던지기!' : '⬇️ 아래에서 이동할 말을 선택하세요'}
                     </button>
 
+                    <!-- 누적된 이동권(윷/모/잡기) 선택 탭 -->
                     ${gs.pendingMoves?.length > 0 ? `
-                      <div class="mt-3">
-                        <p class="text-xs text-slate-500 mb-1.5">사용할 이동권을 선택 후 말을 클릭하세요:</p>
+                      <div class="mt-3 pt-3 border-t border-amber-300">
+                        <p class="text-xs font-bold text-amber-900 mb-1.5">보유한 이동권 (${gs.pendingMoves.length}개):</p>
                         <div class="flex flex-wrap gap-2">
                           ${gs.pendingMoves.map((m, idx) => `
-                            <button data-move-idx="${idx}" class="move-select px-3 py-1.5 rounded-lg text-sm font-bold border-2 cursor-pointer
-                              ${moveIdx === idx ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600'}">
+                            <button data-move-idx="${idx}" class="move-select px-3.5 py-1.5 rounded-xl text-sm font-black border-2 cursor-pointer transition
+                              ${moveIdx === idx ? 'border-emerald-600 bg-emerald-600 text-white shadow' : 'border-amber-400 bg-white text-amber-900'}">
                               ${m.name} (${m.steps > 0 ? '+' + m.steps : m.steps}칸)
                             </button>
                           `).join('')}
@@ -616,8 +914,12 @@
                     ` : ''}
                   </div>
 
-                  <div class="p-3 bg-slate-900 text-slate-100 rounded-xl text-xs space-y-1.5 h-36 overflow-y-auto">
-                    ${(gs.logs || []).map((log, i) => `<div class="${i === 0 ? 'text-amber-300 font-bold' : 'text-slate-400'}">• ${log}</div>`).join('')}
+                  <!-- 새 말 vs 기존 말 선택 전략 가이드 -->
+                  ${strategyBoxHtml}
+
+                  <!-- 실시간 중계 기록 -->
+                  <div class="p-3 bg-stone-900 text-amber-50 rounded-2xl text-xs space-y-1.5 h-32 overflow-y-auto border-2 border-amber-800">
+                    ${(gs.logs || []).map((log, i) => `<div class="${i === 0 ? 'text-amber-300 font-bold' : 'text-stone-400'}">• ${log}</div>`).join('')}
                   </div>
                 </div>
               </div>
@@ -634,7 +936,7 @@
         document.querySelectorAll('.move-select').forEach(btn => {
           btn.addEventListener('click', () => setState({ selectedMoveIdx: Number(btn.dataset.moveIdx) }));
         });
-        document.querySelectorAll('.start-piece, .board-piece, .node-target').forEach(el => {
+        document.querySelectorAll('.start-piece, .board-piece, .node-target, .strategy-btn').forEach(el => {
           el.addEventListener('click', () => {
             if (el.dataset.piece !== '') handleMovePiece(Number(el.dataset.piece));
           });
@@ -659,76 +961,76 @@
 
       root.innerHTML = `
         <div class="min-h-screen p-4 md:p-8 max-w-6xl mx-auto">
-          <div class="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
+          <div class="flex flex-wrap items-center justify-between gap-4 bg-[#fffdf9] p-4 rounded-2xl shadow-md border-2 border-amber-800 mb-6">
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-xl font-black text-slate-800">🎲 우리 반 스피드 2말 윷놀이 대회</h1>
-                <span class="px-3 py-1 bg-indigo-100 text-indigo-800 font-black rounded-lg text-sm">방 코드: ${state.roomCode}</span>
+                <h1 class="font-trad text-xl md:text-2xl font-black text-stone-900">🏮 우리 반 전통 2말 윷놀이 대회</h1>
+                <span class="px-3 py-1 bg-red-800 text-amber-100 font-black rounded-lg text-sm">방 코드: ${state.roomCode}</span>
               </div>
-              <p class="text-sm text-slate-500 mt-1">
+              <p class="text-sm text-stone-600 mt-1">
                 ${state.mode === 'host'
                   ? `선생님 관리 화면 (${state.connStatus === 'connected' ? '🟢 방 개설 완료' : '🟡 방 연결 중...'} / 접속 학생: ${playerList.length}명)`
-                  : `참가자: <strong>${state.currentUser?.name}</strong> (총 ${playerList.length}명 참여 중)`}
+                  : `참가자: <strong class="text-red-800">${state.currentUser?.name}</strong> (총 ${playerList.length}명 참여 중)`}
               </p>
             </div>
 
             <div class="flex items-center gap-2">
-              ${myActiveMatch ? `<button id="btn-my-match" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow animate-bounce cursor-pointer">⚔️ 내 경기 바로 입장하기!</button>` : ''}
+              ${myActiveMatch ? `<button id="btn-my-match" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-lg animate-bounce cursor-pointer">⚔️ 내 경기 바로 입장하기!</button>` : ''}
               ${state.mode === 'host' ? `
-                <button id="btn-gen" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-sm cursor-pointer">🔀 대진표 자동 생성</button>
-                <button id="btn-reset" class="px-3 py-2.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold rounded-xl cursor-pointer">대진표 초기화</button>
+                <button id="btn-gen" class="px-4 py-2.5 bg-red-700 hover:bg-red-800 text-amber-50 text-sm font-bold rounded-xl shadow cursor-pointer">🔀 대진표 자동 생성</button>
+                <button id="btn-reset" class="px-3 py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded-xl cursor-pointer">대진표 초기화</button>
               ` : ''}
             </div>
           </div>
 
           ${matchList.length === 0 ? `
-            <div class="bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm">
+            <div class="bg-[#fffdf9] rounded-3xl p-8 text-center border-2 border-amber-700 shadow-lg">
               ${state.mode === 'host' ? `
-                <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl inline-block">
-                  <p class="text-sm text-amber-800 font-bold mb-1">학생들에게 아래 방 번호를 알려주세요!</p>
-                  <p class="text-4xl font-black text-indigo-600 tracking-widest">${state.roomCode}</p>
+                <div class="mb-6 p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl inline-block">
+                  <p class="text-sm text-amber-900 font-bold mb-1">학생들에게 아래 방 번호를 알려주세요!</p>
+                  <p class="text-5xl font-black text-red-800 tracking-widest">${state.roomCode}</p>
                 </div>
               ` : ''}
-              <h2 class="text-lg font-bold text-slate-800 mb-2">
+              <h2 class="font-trad text-xl font-bold text-stone-900 mb-2">
                 ${state.mode === 'host' ? '학생들이 모두 입장하면 상단의 [대진표 자동 생성] 버튼을 눌러주세요!' : '선생님이 대진표를 생성할 때까지 잠시 기다려주세요!'}
               </h2>
-              <p class="text-sm text-slate-500 mb-6">현재 입장 완료한 친구들 (${playerList.length}명)</p>
-              <div class="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto mb-6">
-                ${playerList.map(p => `<span class="px-3.5 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-full text-sm border border-indigo-100">${p.name}</span>`).join('')}
+              <p class="text-sm text-stone-500 mb-6">현재 입장 완료한 친구들 (${playerList.length}명)</p>
+              <div class="flex flex-wrap justify-center gap-2.5 max-w-2xl mx-auto mb-6">
+                ${playerList.map(p => `<span class="px-4 py-1.5 bg-amber-100 text-amber-950 font-bold rounded-full text-sm border border-amber-400">${p.name}</span>`).join('')}
               </div>
               ${state.mode === 'host' && playerList.length === 0 ? `
-                <button id="btn-demo" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg cursor-pointer">🧪 테스트용 가상 학생 4명 추가</button>
+                <button id="btn-demo" class="px-3.5 py-2 text-xs bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold rounded-lg cursor-pointer">🧪 테스트용 가상 학생 4명 추가</button>
               ` : ''}
             </div>
           ` : `
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-x-auto pb-4">
               ${Object.entries(roundsMap).map(([roundNum, rMatches]) => {
-                const roundTitle = Number(roundNum) === totalRounds ? '🏆 결승전' :
+                const roundTitle = Number(roundNum) === totalRounds ? '🏆 장원 결정전 (결승)' :
                                    Number(roundNum) === totalRounds - 1 ? '🔥 준결승 (4강)' : `${roundNum}라운드`;
                 return `
                   <div class="space-y-4">
-                    <h3 class="font-black text-center text-slate-700 bg-slate-200/70 py-2 rounded-xl">${roundTitle}</h3>
+                    <h3 class="font-trad font-black text-center text-amber-950 bg-amber-200/80 border border-amber-400 py-2.5 rounded-xl">${roundTitle}</h3>
                     ${rMatches.map(m => {
                       const canJoin = m.p1 && m.p2 && !m.winner;
                       const isMyGame = state.mode === 'student' && (m.p1?.id === state.currentUser?.id || m.p2?.id === state.currentUser?.id);
                       return `
-                        <div class="bg-white p-3.5 rounded-xl border shadow-sm space-y-2 ${isMyGame && !m.winner ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-slate-200'}">
-                          <div class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold ${m.winner?.id === m.p1?.id ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-50 text-slate-700'}">
+                        <div class="bg-[#fffdf9] p-3.5 rounded-2xl border-2 shadow-sm space-y-2 ${isMyGame && !m.winner ? 'border-emerald-500 ring-4 ring-emerald-200' : 'border-amber-700/40'}">
+                          <div class="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold ${m.winner?.id === m.p1?.id ? 'bg-amber-200 text-amber-950 border border-amber-500' : 'bg-stone-100 text-stone-700'}">
                             <span>${m.p1 ? m.p1.name : '대기중...'}</span>
                             <div class="flex items-center gap-1">
                               ${m.winner?.id === m.p1?.id ? '<span>👑</span>' : ''}
-                              ${state.mode === 'host' && m.p1 && !m.winner ? `<button data-mid="${m.id}" data-slot="p1" class="force-win px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded cursor-pointer">승</button>` : ''}
+                              ${state.mode === 'host' && m.p1 && !m.winner ? `<button data-mid="${m.id}" data-slot="p1" class="force-win px-2 py-0.5 bg-red-700 text-white text-[10px] rounded cursor-pointer">승</button>` : ''}
                             </div>
                           </div>
-                          <div class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold ${m.winner?.id === m.p2?.id ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-50 text-slate-700'}">
+                          <div class="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold ${m.winner?.id === m.p2?.id ? 'bg-amber-200 text-amber-950 border border-amber-500' : 'bg-stone-100 text-stone-700'}">
                             <span>${m.p2 ? m.p2.name : (m.round === 1 && m.p1 ? '부전승' : '대기중...')}</span>
                             <div class="flex items-center gap-1">
                               ${m.winner?.id === m.p2?.id ? '<span>👑</span>' : ''}
-                              ${state.mode === 'host' && m.p2 && !m.winner ? `<button data-mid="${m.id}" data-slot="p2" class="force-win px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded cursor-pointer">승</button>` : ''}
+                              ${state.mode === 'host' && m.p2 && !m.winner ? `<button data-mid="${m.id}" data-slot="p2" class="force-win px-2 py-0.5 bg-red-700 text-white text-[10px] rounded cursor-pointer">승</button>` : ''}
                             </div>
                           </div>
                           ${canJoin ? `
-                            <button data-mid="${m.id}" class="enter-match w-full py-2 text-white text-xs font-bold rounded-lg transition cursor-pointer ${isMyGame ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}">
+                            <button data-mid="${m.id}" class="enter-match w-full py-2.5 text-white text-xs font-black rounded-xl transition cursor-pointer ${isMyGame ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-800 hover:bg-amber-900'}">
                               ${isMyGame ? '🎮 내 대결 방 입장' : '👀 경기 관전하기'}
                             </button>
                           ` : ''}
@@ -763,7 +1065,6 @@
       });
     }
 
-    // 초기 화면 즉시 렌더링
     render();
   </script>
 </body>
